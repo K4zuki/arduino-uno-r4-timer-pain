@@ -8,7 +8,7 @@ jobs:
     name: Compile document
     runs-on: ubuntu-latest
     container:
-      image: k4zuki/pandocker-alpine:2.19-core
+      image: k4zuki/pandocker-alpine:3.6-core
     steps:
       - name: Checkout
         uses: actions/checkout@v4
