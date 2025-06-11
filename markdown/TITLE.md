@@ -1,5 +1,21 @@
 # まえがき {-}
 
+## このドキュメントは何 {-}
+
+この本は、Arduino UNO R4 minima (以下 "Arduino R4") の低レベルプログラミング研究のため、手始めに
+PWMをいじろうとして色々うんざりした経緯を語るドキュメントです。R4 Wifiは実験していません。
+
+Arduino R4の2ピンを使って相補型PWMを1チャンネル出すまでを試します。
+
+## おことわり {-}
+
+以下のマイコンボードで実験しました。リストにないものは触っていません。
+
+- Arduino UNO R4 minima <https://docs.arduino.cc/hardware/uno-r4-minima/>
+- FLINT ProMicro R4 <https://flint.works/p/flint-promicro-r4/>
+
+\toc
+
 ::: rmnote
 
 > **このファイルは何**
