@@ -1,3 +1,6 @@
 [submodule "docx2pdf"]
 	path = docx2pdf
 	url = https://gist.github.com/b6be0948b3fd8b247b6161e4155fbd98.git
+[submodule "arduino-core-renesas"]
+	path = arduino-core-renesas
+	url = https://github.com/arduino/ArduinoCore-renesas.git
