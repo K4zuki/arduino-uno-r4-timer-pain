@@ -6,6 +6,7 @@
 PWMをいじろうとして色々うんざりした経緯を語るドキュメントです。R4 Wifiは実験していません。
 
 Arduino R4の2ピンを使って相補型PWMを1チャンネル出すまでを試します。
+同期した逆相の信号を設定するには最下層のレジスタアクセス実装まで深堀りしないとならないあたりが大変でした。
 
 ## おことわり {-}
 
@@ -14,7 +15,103 @@ Arduino R4の2ピンを使って相補型PWMを1チャンネル出すまでを�
 - Arduino UNO R4 minima <https://docs.arduino.cc/hardware/uno-r4-minima/>
 - FLINT ProMicro R4 <https://flint.works/p/flint-promicro-r4/>
 
+コンパイラやライブラリの環境は以下のとおりです。
+
+- Arduino IDE 2.3.6
+- arduino-cli 1.2.2
+    - IDEも内部的に使っていますが、別個にインストールしています。設定ファイル類は共用するようです。
+- arduino:renesas_uno 1.4.1
+    - ボードマネージャからArduino UNO R4 Boardsをインストールします。
+    - 実装コードの引用はGitHubリポジトリ<https://github.com/arduino/ArduinoCore-renesas>の`1.4.1`タグを
+      ダウンロードして直接参照しています。
+
 \toc
+
+# PWM.h を読み解いてみる
+
+まず`PWM.h`をインクルードしてみます。多くの作例では、ここで定義されている`PwmOut`オブジェクトを使っています。
+IDE上でCtrl+LMBを使いヘッダに飛ぶと、 \
+`.../Arduino15/packages/arduino/hardware/renesas_uno/1.4.1/cores/arduino/pwm.h`
+となっていました。この部分はターゲットボードごとに変わると思います。
+
+実装ファイルは `.../Arduino15/packages/arduino/hardware/renesas_uno/1.4.1/cores/arduino/pwm.cpp`
+です。ヘッダと同じディレクトリにあります。
+
+中身を見ると、はじめの方で早速`Arduino.h` と `FspTimer.h` をインクルードしています。
+
+[PWM.h (先頭部分抜粋)](arduino-core-renesas/cores/arduino/pwm.h){.cpp .listingtable to=8}
+
+インスタンス宣言してコンストラクタを呼び出した時点では、ピンの予約などをするくらいで詳細は定まっていません。
+begin関数を呼び出すと、内部で初期設定が行われます。
+
+## PwmOut クラス
+
+## PwmOut::begin()
+
+3種類の実装が用意されています。
+
+### 互換モード：490Hz、50％
+
+[](arduino-core-renesas/cores/arduino/pwm.h){.cpp .listingtable from=13 to=14 nocaption=true}
+
+引数なしの`begin()`は490Hz・50％デューティーに設定されます。R3との互換性のためと思われます。
+
+[`PwmOut::begin()` (互換モード・`pwm.cpp`抜粋)](
+arduino-core-renesas/cores/arduino/pwm.cpp){
+.cpp .listingtable from=40 to=59 #lst:pwm_cpp_compatible_mode}
+
+### 周期・パルス幅を設定できるモード
+
+[](arduino-core-renesas/cores/arduino/pwm.h){.cpp .listingtable from=15 to=24 nocaption=true}
+
+`raw`に`false`を与えたときは、`period_width`と`pulse_width`はマイクロ秒単位になります。
+`raw`を`true`にすると、比較レジスタに即値が取り込まれます。このとき`sd`の値によって実時間が変わってしまいます。
+
+`sd`はタイマクロック回路に与える周波数を決めるための分周比を与えます。1/1（直結・48MHz）から1/1024（46.875kHz）までの10段階です。
+タイマーはこの分周されたクロックのパルスをカウントしてPWMなどの機能を実現します。
+`timer_source_div_t`型は`r_timer_api.h`で定義されていますが、上記の通り一部だけ有効です。
+
+[`timer_source_div_t`型定義 (`r_timer_api.h`抜粋)](
+arduino-core-renesas/variants/MINIMA/includes/ra/fsp/inc/api/r_timer_api.h){
+.cpp .listingtable from=130 to=145}
+
+[`PwmOut::begin()` (周波数指定モード・`pwm.cpp`抜粋)](
+arduino-core-renesas/cores/arduino/pwm.cpp){
+.cpp .listingtable from=62 to=92 #lst:pwm_cpp_set_pulse_width}
+
+デフォルトでは`raw = false`、`sd = TIMER_SOURCE_DIV_1` です。
+
+### 周波数とデューティー比を設定するモード
+
+[](arduino-core-renesas/cores/arduino/pwm.h){.cpp .listingtable from=25 to=25 nocaption=true}
+
+[`PwmOut::begin()` (周波数指定モード・`pwm.cpp`抜粋)](
+arduino-core-renesas/cores/arduino/pwm.cpp){
+.cpp .listingtable from=61 to=92 #lst:pwm_cpp_set_freq}
+
+## PwmOut::suspend()
+
+## PwmOut::resume()
+
+## PwmOut::end()
+
+## pwm.cpp
+
+# FspTimer.h
+
+## start()
+
+## stop()
+
+## reset()
+
+## end()
+
+## r_gpt.h
+
+## FspTimer.cpp
+
+## `timer_cfg_t* get_cfg()`
 
 ::: rmnote
 
