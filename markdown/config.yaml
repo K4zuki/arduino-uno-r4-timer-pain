@@ -73,10 +73,11 @@ docx_coreprop:
   #  language: "Japanese" # ignored?
   #  version: "Version" # ignored?
 
+  extra_section: true
   table-alignment-in-page: center # left / center /right
   table-cell-vertical-alignment: center # top / center / bottom / both
-  read-only-recommended: false # Better set true but this messes with GitHubActions to convert to PDF using Word
-  disable-table-autofit: false # setting 'true' requires explicit column widths setting
+  read-only-recommended: true # Better set true but this messes with GitHubActions to convert to PDF using Word
+  disable-table-autofit: true # setting 'true' requires explicit column widths setting
   table:
   #    "Normal Table": "Centered"
   paragraph:
@@ -84,4 +85,15 @@ docx_coreprop:
   #    "Normal": "Body Text"
   #    "First Paragraph": "Body Text"
   character:
+  okuzuke: # comment out if you don't want Okuzuke
+    table-style: "Centered"
+    para-style: "Table Body Center"
+    rows:
+      - "そういうとこやぞ® シリーズ"
+      - "KY技研"
+      - "K4ZUKI"
+      - |
+        Markdown x Pandoc (DOCX writer)
+        with docx-coreprop-writer program
+      - "Revision 1.0 / Comiket 106 / 2025"
 ...
