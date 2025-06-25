@@ -18,6 +18,8 @@ Arduino R4の2ピンを使って相補型PWMを1チャンネル出すまでを�
 コンパイラやライブラリの環境は以下のとおりです。
 
 - Arduino IDE 2.3.6
+    - 筆者はMac版・Windows版両方を使っていますが、このドキュメント内ではWindows版のキーアサインで説明します。
+      なお、スクリーンショットはMac版になることがあります。
 - arduino-cli 1.2.2
     - IDEも内部的に使っていますが、別個にインストールしています。設定ファイル類は共用するようです。
 - arduino:renesas_uno 1.4.1
@@ -28,6 +30,8 @@ Arduino R4の2ピンを使って相補型PWMを1チャンネル出すまでを�
 \toc
 
 # PWM.h を読み解いてみる
+
+## `PWM.h` &rarr; `pwm.h`
 
 まず`PWM.h`をインクルードしてみます。多くの作例では、ここで定義されている`PwmOut`オブジェクトを使っています。
 IDE上でCtrl+LMBを使いヘッダに飛ぶと、 \
@@ -41,14 +45,80 @@ IDE上でCtrl+LMBを使いヘッダに飛ぶと、 \
 
 [PWM.h (先頭部分抜粋)](arduino-core-renesas/cores/arduino/pwm.h){.cpp .listingtable to=8}
 
-インスタンス宣言してコンストラクタを呼び出した時点では、ピンの予約などをするくらいで詳細は定まっていません。
+インスタンス宣言してコンストラクタを呼び出した時点では、ピン番号を内部に保持するだけで何もしません。
 begin関数を呼び出すと、内部で初期設定が行われます。
 
-## PwmOut クラス
+## PwmOut クラス定義
+
+[**PwmOut** クラス定義(ヘッダ)](arduino-core-renesas/cores/arduino/pwm.h){
+.cpp .listingtable from=8 to=49 #lst:pwmout-class-definition-header}
+
+privateメンバとして`FspTimer`オブジェクト`timer`が使われています。`timer`へのポインタを渡す`get_timer()`関数を通じてアクセスできます。
+後で設定を上書きするときは、`get_timer()`経由でオブジェクトを取得してFspTimerクラスの関数やメンバオブジェクトを操作します。
+
+[](arduino-core-renesas/cores/arduino/pwm.h){.cpp .listingtable from=37 to=37 nocaption=true}
+
+\newpage
+
+<div class="table" width="[0.1,0.15,0.25,0.35,0.3]">
+
+Table: PwmOutクラスメンバ一覧 {#tbl:pwmout-class-members}
+
+| Scope   | Type     | Return type               | Name                              | Purpose                                                  |
+|---------|----------|---------------------------|-----------------------------------|----------------------------------------------------------|
+| Public  | Function | `bool`{.cpp}              | `begin()`{.cpp}                   | Initialise and reserve pin and peripheral                |
+|         |          | `void`{.cpp}              | `end()`{.cpp}                     | Release pin and peripheral for other usage               |
+|         |          | `bool`{.cpp}              | `period(int ms)`{.cpp}            | Sets period in ms                                        |
+|         |          | `bool`{.cpp}              | `pulseWidth(int ms)`{.cpp}        | Sets pulse width in ms                                   |
+|         |          | `bool`{.cpp}              | `period_us(int us)`{.cpp}         | Sets period in &micro;s                                  |
+|         |          | `bool`{.cpp}              | `pulseWidth_us(int us)`{.cpp}     | Sets pulse width in &micro;s                             |
+|         |          | `bool`{.cpp}              | `period_raw(int period)`{.cpp}    | Sets period in raw register value                        |
+|         |          | `bool`{.cpp}              | `pulseWidth_raw(int pulse)`{.cpp} | Sets pulse width in raw register value                   |
+|         |          | `bool`{.cpp}              | `pulse_perc(float duty)`{.cpp}    | Sets duty cycle in percentage                            |
+|         |          | `void`{.cpp}              | `suspend()`{.cpp}                 | Stops generating pulse from pin                          |
+|         |          | `void`{.cpp}              | `resume()`{.cpp}                  | Restarts generating pulse from pin                       |
+|         |          | `FspTimer *`{.cpp}        | `get_timer()`{.cpp}               | Returns pointer to `timer`{.cpp}                         |
+| Private | Function | `bool`{.cpp}              | `cfg_pin(int max_index)`{.cpp}    | Sets up pin function and reserves from other peripherals |
+|         | Variable | `int`{.cpp}               | `_pin`{.cpp}                      | Pin number                                               |
+|         |          | `bool`{.cpp}              | `_enabled`{.cpp}                  | Status flag to enable timer                              |
+|         |          | `bool`{.cpp}              | `_is_agt`{.cpp}                   | Flag to determine timer type                             |
+|         |          | `TimerPWMChannel_t`{.cpp} | `_pwm_channel`{.cpp}              | PWM channel information either A or B                    |
+|         |          | `uint8_t`{.cpp}           | `timer_channel`{.cpp}             | Timer channel number                                     |
+|         |          | `FspTimer`{.cpp}          | `timer`{.cpp}                     | FspTimer object                                          |
+
+</div>
+
+:::rmnote
+
+``` cpp
+    bool begin()
+    void end();
+    bool period(int ms);
+    bool pulseWidth(int ms);
+    bool period_us(int us);
+    bool pulseWidth_us(int us);
+    bool period_raw(int period);
+    bool pulseWidth_raw(int pulse);
+    bool pulse_perc(float duty);
+    void suspend();
+    void resume();
+        FspTimer *get_timer() {return &timer;}
+  private:
+    bool cfg_pin(int max_index);
+    int _pin;
+    bool _enabled;
+    bool _is_agt;
+    TimerPWMChannel_t _pwm_channel;
+    uint8_t timer_channel;  
+    FspTimer timer;
+```
+
+:::
 
 ## PwmOut::begin()
 
-3種類の実装が用意されています。
+3種類の実装が用意されています。使用するピンによってAGTかGPTのタイマブロックを割り当て、外のオブジェクトと衝突しないように予約します。
+どの実装も呼び出すと同時に信号出力が開始されます。タイマブロックの種類はICレベルでピンごとに固有の割り当てが定義されています。
 
 ### 互換モード：490Hz、50％
 
@@ -59,6 +129,8 @@ begin関数を呼び出すと、内部で初期設定が行われます。
 [`PwmOut::begin()` (互換モード・`pwm.cpp`抜粋)](
 arduino-core-renesas/cores/arduino/pwm.cpp){
 .cpp .listingtable from=40 to=59 #lst:pwm_cpp_compatible_mode}
+
+内部で`timer.begin_pwm()`{.cpp}を呼び出しています。
 
 ### 周期・パルス幅を設定できるモード
 
@@ -75,7 +147,7 @@ arduino-core-renesas/cores/arduino/pwm.cpp){
 arduino-core-renesas/variants/MINIMA/includes/ra/fsp/inc/api/r_timer_api.h){
 .cpp .listingtable from=130 to=145}
 
-[`PwmOut::begin()` (周波数指定モード・`pwm.cpp`抜粋)](
+[`PwmOut::begin()` (周期・パルス幅指定モード・`pwm.cpp`抜粋)](
 arduino-core-renesas/cores/arduino/pwm.cpp){
 .cpp .listingtable from=62 to=92 #lst:pwm_cpp_set_pulse_width}
 
@@ -85,27 +157,35 @@ arduino-core-renesas/cores/arduino/pwm.cpp){
 
 [](arduino-core-renesas/cores/arduino/pwm.h){.cpp .listingtable from=25 to=25 nocaption=true}
 
-[`PwmOut::begin()` (周波数指定モード・`pwm.cpp`抜粋)](
+[`PwmOut::begin()` (周波数・デューティー指定モード・`pwm.cpp`抜粋)](
 arduino-core-renesas/cores/arduino/pwm.cpp){
 .cpp .listingtable from=61 to=92 #lst:pwm_cpp_set_freq}
 
 ## PwmOut::suspend()
 
+内部で`timer.stop()`{.cpp}を呼んでいます。
+
 ## PwmOut::resume()
 
+内部で`timer.start()`{.cpp}を呼んでいます。
+
 ## PwmOut::end()
+
+内部で`timer.end()`{.cpp}を呼び、メモリを開放します。また、使用中フラグを`false`{.cpp}にします。
 
 ## pwm.cpp
 
 # FspTimer.h
 
-## start()
+## FspTimer::start()
 
-## stop()
+## FspTimer::stop()
 
-## reset()
+## FspTimer::reset()
 
-## end()
+## FspTimer::end()
+
+## r_timer_api.h
 
 ## r_gpt.h
 
@@ -113,7 +193,43 @@ arduino-core-renesas/cores/arduino/pwm.cpp){
 
 ## `timer_cfg_t* get_cfg()`
 
+## p_extend
+
 ::: rmnote
+
+# 参照ファイル全文引用
+
+## pwm.h
+
+[pwm.h](arduino-core-renesas/cores/arduino/pwm.h){.cpp .listingtable #lst:pwm-h-whole-file}
+
+\newpage
+
+## pwm.cpp
+
+[pwm.cpp](arduino-core-renesas/cores/arduino/pwm.h){.cpp .listingtable #lst:pwm-cpp-whole-file}
+
+\newpage
+
+## FspTimer.h
+
+[FspTimer.h](arduino-core-renesas/cores/arduino/FspTimer.h){.cpp .listingtable #lst:fsptimer-h-whole-file}
+
+\newpage
+
+## FspTimer.cpp
+
+[FspTimer.cpp](arduino-core-renesas/cores/arduino/FspTimer.cpp){.cpp .listingtable #lst:fsptimer-cpp-whole-file}
+
+\newpage
+
+## r_timer_api.h
+
+[r_timer_api.h](
+arduino-core-renesas/variants/MINIMA/includes/ra/fsp/inc/api/r_timer_api.h){
+.cpp .listingtable #lst:r_timer_api-h-whole-file}
+
+\newpage
 
 > **このファイルは何**
 >
