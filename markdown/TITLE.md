@@ -31,6 +31,7 @@ PICは今で言うインフルエンサー的な方[^gokan]がいて、ライン
 ## この本で解説する範囲 {-}
 
 Arduino R4の2ピンを使って相補型PWMを1チャンネル出すまでを試します。
+PWM.hから始まり、FspTimer.hとFspTimer.cppで詳細な実装を調べました。
 同期した逆相の信号を設定するには最下層のレジスタアクセス実装まで深堀りしないとならないあたりが大変でした。
 
 ## おことわり {-}
@@ -113,37 +114,11 @@ Table: PwmOutクラスメンバ一覧 {#tbl:pwmout-class-members}
 
 </div>
 
-:::rmnote
-
-``` cpp
-    bool begin()
-    void end();
-    bool period(int ms);
-    bool pulseWidth(int ms);
-    bool period_us(int us);
-    bool pulseWidth_us(int us);
-    bool period_raw(int period);
-    bool pulseWidth_raw(int pulse);
-    bool pulse_perc(float duty);
-    void suspend();
-    void resume();
-        FspTimer *get_timer() {return &timer;}
-  private:
-    bool cfg_pin(int max_index);
-    int _pin;
-    bool _enabled;
-    bool _is_agt;
-    TimerPWMChannel_t _pwm_channel;
-    uint8_t timer_channel;  
-    FspTimer timer;
-```
-
-:::
-
 ## PwmOut::begin()
 
+ペリフェラルの確保と初期設定を行い、PWM信号の出力を[即時開始する]{.underline}関数です。
 3種類の実装が用意されています。使用するピンによってAGTかGPTのタイマブロックを割り当て、外のオブジェクトと衝突しないように予約します。
-どの実装も呼び出すと同時に信号出力が開始されます。タイマブロックの種類はICレベルでピンごとに固有の割り当てが定義されています。
+タイマブロックの種類はICレベルでピンごとに固有の割り当てが定義されています。アナログ用のピンには割り当てがありません。デジタルピンだけで動作します。
 
 ### 互換モード：490Hz、50％
 
@@ -198,97 +173,24 @@ arduino-core-renesas/cores/arduino/pwm.cpp){
 
 内部で`timer.end()`{.cpp}を呼び、メモリを開放します。また、使用中フラグを`false`{.cpp}にします。
 
-## pwm.cpp
+## FspTimer PwmOut::*get_timer()
 
 # FspTimer.h
 
-## FspTimer::start()
-
-## FspTimer::stop()
-
-## FspTimer::reset()
-
-## FspTimer::end()
-
-## r_timer_api.h
-
-## r_gpt.h
-
-## FspTimer.cpp
-
-## `timer_cfg_t* get_cfg()`
-
-## p_extend
-
-::: rmnote
-
-# 参照ファイル全文引用
-
-## pwm.h
-
-[pwm.h](arduino-core-renesas/cores/arduino/pwm.h){.cpp .listingtable #lst:pwm-h-whole-file}
+## FspTimer::begin()
 
 \newpage
 
-## pwm.cpp
-
-[pwm.cpp](arduino-core-renesas/cores/arduino/pwm.h){.cpp .listingtable #lst:pwm-cpp-whole-file}
+## `timer_cfg_t* FspTimer::get_cfg()`
 
 \newpage
 
-## FspTimer.h
+# r_timer_api.h
 
-[FspTimer.h](arduino-core-renesas/cores/arduino/FspTimer.h){.cpp .listingtable #lst:fsptimer-h-whole-file}
+## timer_cfg_t
 
-\newpage
-
-## FspTimer.cpp
-
-[FspTimer.cpp](arduino-core-renesas/cores/arduino/FspTimer.cpp){.cpp .listingtable #lst:fsptimer-cpp-whole-file}
-
-\newpage
-
-## r_timer_api.h
-
-[r_timer_api.h](
-arduino-core-renesas/variants/MINIMA/includes/ra/fsp/inc/api/r_timer_api.h){
-.cpp .listingtable #lst:r_timer_api-h-whole-file}
-
-\newpage
-
-> **このファイルは何**
->
-> このファイルはPandockerがデフォルトで参照する原稿Markdownファイル`TITLE.md`のテンプレートです。
-> **素のPandocでは実現できない機能の説明を含みます。**
->
-> ------------------------
->
-> **Pandoc的Divとrmnote**
->
-> Pandocはコロン`:`3個ずつで囲まれた部分をDivとして扱います(fenced divs; <https://pandoc.org/MANUAL.html#divs-and-spans>)。
-> 任意のclassやattributeを付与することができるので、
-> フィルタのトリガやCSSで色設定をするなどの後処理に使えます。ちなみにこのDivはrmnoteクラスが付与されていて、
-> `removalnote.lua`というLuaフィルタの処理対象です。メタデータの設定によって、すべてのrmnoteクラスDivの出力を
-> 抑圧することができます。`config.yaml`を編集してください。
->
-> **GitHubその他普通のレンダラでは三連コロンを解釈してくれないので、**
-> **きれいなレンダリングを保つために前後に改行を入れておくことをおすすめします。**
->
-> ---
-
-> **TOC(目次)挿入**
->
-> `\toc`を任意の場所に書いておくと、Luaフィルタ`docx-pagebreak-toc.lua`がその場所に目次を生成します。
-> 現在のところ、Docx出力のみが対象です。目次の前は必ず改ページします。目次のあとは改ページしません。
-> `toc-title`メタデータによって目次の見出しを変更できます。`config.yaml`を編集してください。
-
-[](markdown/config.yaml){.listingtable from=18 to=20}
-
-&darr;
-
-:::
-
-\toc
+[](arduino-core-renesas/variants/MINIMA/includes/ra/fsp/inc/api/r_timer_api.h){
+.cpp .listingtable from=165 to=189 nocaption=true}
 
 ::: rmnote
 
@@ -302,6 +204,13 @@ arduino-core-renesas/variants/MINIMA/includes/ra/fsp/inc/api/r_timer_api.h){
 :::
 
 \newpage
+
+## r_gpt.h
+
+### gpt_extended_cfg_t
+
+[](arduino-core-renesas/variants/MINIMA/includes/ra/fsp/inc/instances/r_gpt.h){
+.cpp .listingtable from=366 to=398 nocaption=true}
 
 ::: rmnote
 
@@ -323,14 +232,10 @@ arduino-core-renesas/variants/MINIMA/includes/ra/fsp/inc/api/r_timer_api.h){
 
 ::: rmnote
 
-> **下線**
->
-> 任意のSpanに`underline`クラスを付与すると下線がつきます。Docx出力に加えLaTeX出力(*)が対象です。
->
-> (*): LaTeX出力では`tex-underline.lua`が処理します。
->
-> 例：`**下線**`
->
-> ![QR](images/QRcode.png){#fig:qr-code width=120mm}
+### gpt_gtior_setting_t
 
-:::
+[](arduino-core-renesas/variants/MINIMA/includes/ra/fsp/inc/instances/r_gpt.h){
+.cpp .listingtable from=158 to=190 nocaption=true}
+
+### p_extend
+
