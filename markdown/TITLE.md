@@ -136,13 +136,13 @@ IDE上でCtrl+LMBを使いヘッダに飛ぶと、 \
 インスタンス宣言してコンストラクタを呼び出した時点では、ピン番号を内部に保持するだけで何もしません。
 begin関数を呼び出すと、内部で初期設定が行われます。
 
-## PwmOut クラス定義
+## `PwmOut` クラス定義
 
-[**PwmOut** クラス定義(ヘッダ)](arduino-core-renesas/cores/arduino/pwm.h){
+[**`PwmOut`** クラス定義(ヘッダ)](arduino-core-renesas/cores/arduino/pwm.h){
 .cpp .listingtable from=8 to=49 #lst:pwmout-class-definition-header}
 
 privateメンバとして`FspTimer`オブジェクト`timer`が使われています。`timer`へのポインタを渡す`get_timer()`関数を通じてアクセスできます。
-後で設定を上書きするときは、`get_timer()`経由でオブジェクトを取得してFspTimerクラスの関数やメンバオブジェクトを操作します。
+用意されている関数でカバーされていない設定を行うときは、`get_timer()`経由でオブジェクトを取得してFspTimerクラスの関数やメンバオブジェクトを操作します。
 
 [](arduino-core-renesas/cores/arduino/pwm.h){.cpp .listingtable from=37 to=37 nocaption=true}
 
@@ -150,7 +150,7 @@ privateメンバとして`FspTimer`オブジェクト`timer`が使われてい�
 
 <div class="table" width="[0.1,0.15,0.25,0.35,0.3]">
 
-Table: PwmOutクラスメンバ一覧 {#tbl:pwmout-class-members}
+Table: `PwmOut`クラスメンバ一覧 {#tbl:pwmout-class-members}
 
 | Scope   | Type     | Return type               | Name                              | Purpose                                                  |
 |---------|----------|---------------------------|-----------------------------------|----------------------------------------------------------|
@@ -176,11 +176,18 @@ Table: PwmOutクラスメンバ一覧 {#tbl:pwmout-class-members}
 
 </div>
 
-## PwmOut::begin()
+## `PwmOut::begin()`{.cpp}
 
-ペリフェラルの確保と初期設定を行い、PWM信号の出力を[即時開始する]{.underline}関数です。
-3種類の実装が用意されています。使用するピンによってAGTかGPTのタイマブロックを割り当て、外のオブジェクトと衝突しないように予約します。
-タイマブロックの種類はICレベルでピンごとに固有の割り当てが定義されています。アナログ用のピンには割り当てがありません。デジタルピンだけで動作します。
+IOとペリフェラルの確保と初期設定を行い、PWM信号の出力を[即時開始する]{.underline}関数です。
+3種類の実装が用意されています（次節で詳しく見ます）。使用するピンによってAGTかGPTのタイマブロックを割り当て[^seems-no-agt]、
+他のオブジェクトと衝突しないように予約します。
+タイマブロックの種類はICレベルでピンごとに固有の割り当てが定義されています。アナログ用のピン(A0~A3)には割り当てがありません。
+デジタルピン(D0~D13)とI2C兼用ピン(A4,A5)だけが対象です。
+
+信号出力を開始するタイミングが制御を制御したいので、クラスを使わない別解を探したところ、
+この関数内で使われているプライベート関数`cfg_pin()`と等価な操作をすればIOの設定をGPTに割り当てることができそうだとわかりました。
+
+[^seems-no-agt]: ピンの機能割り当てを調べた限り、少なくともUNO R4では、AGTが割り当てられる可能性はなさそうです。
 
 ### 互換モード：490Hz、50％
 
@@ -188,8 +195,7 @@ Table: PwmOutクラスメンバ一覧 {#tbl:pwmout-class-members}
 
 引数なしの`begin()`は490Hz・50％デューティーに設定されます。R3との互換性のためと思われます。
 
-[`PwmOut::begin()` (互換モード・`pwm.cpp`抜粋)](
-arduino-core-renesas/cores/arduino/pwm.cpp){
+[`PwmOut::begin()` (互換モード・`pwm.cpp`抜粋)](arduino-core-renesas/cores/arduino/pwm.cpp){
 .cpp .listingtable from=40 to=59 #lst:pwm_cpp_compatible_mode}
 
 内部で`timer.begin_pwm()`{.cpp}を呼び出しています。
@@ -209,8 +215,7 @@ arduino-core-renesas/cores/arduino/pwm.cpp){
 arduino-core-renesas/variants/MINIMA/includes/ra/fsp/inc/api/r_timer_api.h){
 .cpp .listingtable from=130 to=145}
 
-[`PwmOut::begin()` (周期・パルス幅指定モード・`pwm.cpp`抜粋)](
-arduino-core-renesas/cores/arduino/pwm.cpp){
+[`PwmOut::begin()`{.cpp} (周期・パルス幅指定モード・`pwm.cpp`抜粋)](arduino-core-renesas/cores/arduino/pwm.cpp){
 .cpp .listingtable from=62 to=92 #lst:pwm_cpp_set_pulse_width}
 
 デフォルトでは`raw = false`、`sd = TIMER_SOURCE_DIV_1` です。
@@ -219,84 +224,137 @@ arduino-core-renesas/cores/arduino/pwm.cpp){
 
 [](arduino-core-renesas/cores/arduino/pwm.h){.cpp .listingtable from=25 to=25 nocaption=true}
 
-[`PwmOut::begin()` (周波数・デューティー指定モード・`pwm.cpp`抜粋)](
-arduino-core-renesas/cores/arduino/pwm.cpp){
-.cpp .listingtable from=61 to=92 #lst:pwm_cpp_set_freq}
+[`PwmOut::begin()`{.cpp} (周波数・デューティー指定モード・`pwm.cpp`抜粋)]( arduino-core-renesas/cores/arduino/pwm.cpp){
+.cpp .listingtable from=93 to=114 #lst:pwm_cpp_set_freq}
 
-## PwmOut::suspend()
+## `PwmOut::cfg_pin()`{.cpp} (プライベート関数)
+
+[`PwmOut::cfg_pin()` (`pwm.cpp`抜粋)](arduino-core-renesas/cores/arduino/pwm.cpp){
+.cpp .listingtable from=15 to=38 #lst:cfg-pin-whole-code}
+
+## `PwmOut::suspend()`{.cpp}
 
 内部で`timer.stop()`{.cpp}を呼んでいます。
 
-## PwmOut::resume()
+## `PwmOut::resume()`{.cpp}
 
 内部で`timer.start()`{.cpp}を呼んでいます。
 
-## PwmOut::end()
+## `PwmOut::end()`{.cpp}
 
 内部で`timer.end()`{.cpp}を呼び、メモリを開放します。また、使用中フラグを`false`{.cpp}にします。
 
-## FspTimer PwmOut::*get_timer()
+## `FspTimer PwmOut::*get_timer()`{.cpp}
 
-# FspTimer.h
+# `FspTimer.h`
 
-## FspTimer::begin()
-
-\newpage
-
-## `timer_cfg_t* FspTimer::get_cfg()`
+## `FspTimer::begin()`{.cpp}
 
 \newpage
 
-# r_timer_api.h
+## `timer_cfg_t* FspTimer::get_cfg()`{.cpp}
 
-## timer_cfg_t
+## `GPTimer *gpt_timer;`{.cpp}
+
+### `gpt_extended_cfg_t ext_cfg`{.cpp}
+
+### `gpt_gtior_setting_t`
+
+\newpage
+
+# `r_timer_api.h`
+
+## `timer_cfg_t`
 
 [](arduino-core-renesas/variants/MINIMA/includes/ra/fsp/inc/api/r_timer_api.h){
 .cpp .listingtable from=165 to=189 nocaption=true}
 
 ::: rmnote
 
-> **Pagebreak(改ページ)挿入**
->
-> `\newpage`を任意の場所に書いておくと、Luaフィルタ`docx-pagebreak-toc.lua`が処理して改ページします。
-> Docx出力とLaTeX出力が対象です。PDF出力のときも動きますが、`--pdf-engine`の設定によってはうまく動かないかもしれません。
+```cpp
+/** User configuration structure, used in open function */
+typedef struct st_timer_cfg
+{
+    timer_mode_t mode;                    ///< Select enumerated value from @ref timer_mode_t
 
-&darr;
+    /* Period in raw timer counts.
+     * @note For triangle wave PWM modes, enter the period of half the triangle wave, or half the desired period.
+     */
+    uint32_t           period_counts;     ///< Period in raw timer counts
+    timer_source_div_t source_div;        ///< Source clock divider
+    uint32_t           duty_cycle_counts; ///< Duty cycle in counts
+
+    /** Select a channel corresponding to the channel number of the hardware. */
+    uint8_t   channel;
+    uint8_t   cycle_end_ipl;              ///< Cycle end interrupt priority
+    IRQn_Type cycle_end_irq;              ///< Cycle end interrupt
+
+    /** Callback provided when a timer ISR occurs.  Set to NULL for no CPU interrupt. */
+    void (* p_callback)(timer_callback_args_t * p_args);
+
+    /** Placeholder for user data.  Passed to the user callback in @ref timer_callback_args_t. */
+    void const * p_context;
+    void const * p_extend;             ///< Extension parameter for hardware specific settings.
+} timer_cfg_t;
+```
 
 :::
 
 \newpage
 
-## r_gpt.h
+## `r_gpt.h`
 
-### gpt_extended_cfg_t
+### `gpt_extended_cfg_t`
 
 [](arduino-core-renesas/variants/MINIMA/includes/ra/fsp/inc/instances/r_gpt.h){
 .cpp .listingtable from=366 to=398 nocaption=true}
 
 ::: rmnote
 
-> **番号なし見出し**
->
-> レベル1~5の`.unnumbered`クラスが付与された見出しから番号付けを外します。Docx出力が対象です。
-> 予め番号なし見出しスタイルを用意する必要があります。見出しスタイルの設定によって、
-> 見出しの前で改ページするかどうかの挙動が変わります。
+```cpp
+/** GPT extension configures the output pins for GPT. */
+typedef struct st_gpt_extended_cfg
+{
+    gpt_output_pin_t gtioca;           ///< DEPRECATED - Configuration for GPT I/O pin A
+    gpt_output_pin_t gtiocb;           ///< DEPRECATED - Configuration for GPT I/O pin B
+    gpt_source_t     start_source;     ///< Event sources that trigger the timer to start
+    gpt_source_t     stop_source;      ///< Event sources that trigger the timer to stop
+    gpt_source_t     clear_source;     ///< Event sources that trigger the timer to clear
+    gpt_source_t     capture_a_source; ///< Event sources that trigger capture of GTIOCA
+    gpt_source_t     capture_b_source; ///< Event sources that trigger capture of GTIOCB
 
-&darr;
+    /** Event sources that trigger a single up count. If GPT_SOURCE_NONE is selected for both count_up_source
+     * and count_down_source, then the timer count source is PCLK.  */
+    gpt_source_t count_up_source;
+
+    /** Event sources that trigger a single down count. If GPT_SOURCE_NONE is selected for both count_up_source
+     * and count_down_source, then the timer count source is PCLK.  */
+    gpt_source_t count_down_source;
+
+    /* Debounce filter for GTIOCxA input signal pin (DEPRECATED). */
+    gpt_capture_filter_t capture_filter_gtioca;
+
+    /* Debounce filter for GTIOCxB input signal pin (DEPRECATED). */
+    gpt_capture_filter_t capture_filter_gtiocb;
+
+    uint8_t   capture_a_ipl;                      ///< Capture A interrupt priority
+    uint8_t   capture_b_ipl;                      ///< Capture B interrupt priority
+    IRQn_Type capture_a_irq;                      ///< Capture A interrupt
+    IRQn_Type capture_b_irq;                      ///< Capture B interrupt
+    gpt_extended_pwm_cfg_t const * p_pwm_cfg;     ///< Advanced PWM features, optional
+    gpt_gtior_setting_t            gtior_setting; ///< Custom GTIOR settings used for configuring GTIOCxA and GTIOCxB pins.
+} gpt_extended_cfg_t;
+```
 
 :::
 
-# 番号なし見出し1 {.unnumbered}
-
-## 番号なし見出し2 {.unnumbered}
-
-### 番号なし見出し3 {.unnumbered}
-
-::: rmnote
-
-### gpt_gtior_setting_t
+### `gpt_gtior_setting_t`
 
 [](arduino-core-renesas/variants/MINIMA/includes/ra/fsp/inc/instances/r_gpt.h){
 .cpp .listingtable from=158 to=190 nocaption=true}
 
-### p_extend
+### `p_extend`
+
+## `r_ioport_api.h`
+
+### `ioport_cfg_options_t`
