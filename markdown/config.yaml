@@ -15,7 +15,7 @@ docrevision: "1.0"
 #  - angle=0
 
 verbcolored: false
-rmnote: false
+rmnote: true
 toc-title: "目次"
 
 svgbob:
@@ -82,9 +82,10 @@ docx_coreprop:
   #    "Normal Table": "Centered"
   paragraph:
     "Image Caption": "Figure Caption"
-  #    "Normal": "Body Text"
-  #    "First Paragraph": "Body Text"
+    "Normal": "Body Text"
+    "First Paragraph": "Body Text"
   character:
+    "Verbatim Char": "NormalTok"
   okuzuke: # comment out if you don't want Okuzuke
     table-style: "Centered"
     para-style: "Table Body Center"
