@@ -232,6 +232,37 @@ arduino-core-renesas/variants/MINIMA/includes/ra/fsp/inc/api/r_timer_api.h){
 [`PwmOut::cfg_pin()` (`pwm.cpp`抜粋)](arduino-core-renesas/cores/arduino/pwm.cpp){
 .cpp .listingtable from=15 to=38 #lst:cfg-pin-whole-code}
 
+::: rmnote
+
+```{.cpp}
+bool PwmOut::cfg_pin(int max_index) {
+/* verify index are good */
+if(_pin < 0 || _pin >= max_index) {
+return false;
+}
+/* getting configuration from table */
+auto pin_cgf = getPinCfgs(_pin, PIN_CFG_REQ_PWM);
+
+/* verify configuration are good */
+if(pin_cgf[0] == 0) {
+return false;
+}
+
+timer_channel = GET_CHANNEL(pin_cgf[0]);
+
+_is_agt = IS_PIN_AGT_PWM(pin_cgf[0]);
+
+_pwm_channel = IS_PWM_ON_A(pin_cgf[0]) ? CHANNEL_A : CHANNEL_B;
+
+/* actually configuring PIN function */
+R_IOPORT_PinCfg(&g_ioport_ctrl, g_pin_cfg[_pin].pin, (uint32_t) (IOPORT_CFG_PERIPHERAL_PIN | (_is_agt ? IOPORT_PERIPHERAL_AGT : IOPORT_PERIPHERAL_GPT1)));
+return true;
+
+}
+```
+
+:::
+
 ## `PwmOut::suspend()`{.cpp}
 
 内部で`timer.stop()`{.cpp}を呼んでいます。
