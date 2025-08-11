@@ -78,14 +78,21 @@ RA4M1のデータシート「ハードウェアマニュアル」(たぶん日�
 ArduinoのAPIや関数をほぼ使わず、レジスタの直接操作をして相補PWMにしています。
 
 - [「任意のポートでPWM出力させたい」 (2023-11-14)](https://ameblo.jp/ogura-castle/entry-12828562536.html)
+- [「任意のポートでPWM出力させるためのレジスタ制御」 (2023-11-15)](https://ameblo.jp/ogura-castle/entry-12828565434.html)
 
 だいたい要約すると、
 
 - IOピンのレジスタでタイマー機能ににコントロールを渡す
-- タイマのレジスタでピン出力変化タイミングを決める
-- その他のタイマ設定をする
+- タイマーのレジスタでピン出力変化タイミングを決める
+- その他のタイマー設定をする
+- タイマー起動（カウント開始、信号出力開始）
 
 という手順を踏んでいます。
+
+また、FspTimerの使い方は以下のブログページを参考にしました。
+
+- [「Arduino UNO R4のFspTimerライブラリの使い方」 （2023-08-11 ）](https://qiita.com/yasuhiro-k/items/93efb640aa12f3db9086)
+- [「Arduino UNO R4 でタイマー割り込みを使う」 （2024.10.21）](https://workshop.aaa-plaza.net/archives/1658)
 
 \newpage
 
