@@ -96,6 +96,10 @@ ArduinoのAPIや関数をほぼ使わず、レジスタの直接操作をして�
 
 \newpage
 
+::: rmnote
+![Arduino UNO R4 Minima ピンアサイン一覧](images/r4-timers-pinout.png){width=150mm #fig:arduino-r4-pin-assignments}
+:::
+
 <div class="table" width="[0.15,0.15,0.15,0.05,0.15,0.15,0.15]">
 
 Table: Arduino UNO R4 Minima ピンアサイン一覧 {#tbl:arduino-r4-pin-assignments}
