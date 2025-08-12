@@ -134,13 +134,10 @@ Table: Arduino UNO R4 Minima ピンアサイン一覧 {#tbl:arduino-r4-pin-assig
 
 まず`PWM.h`をインクルードしてみます。多くの作例では、ここで定義されている`PwmOut`オブジェクトを使っています。
 IDE上でCtrl+LMBを使いヘッダに飛ぶと、 \
-`.../Arduino15/packages/arduino/hardware/renesas_uno/1.4.1/cores/arduino/pwm.h`
-となっていました。この部分はターゲットボードごとに変わると思います。
+`.../Arduino15/packages/arduino/hardware/renesas_uno/1.5.0/cores/arduino/pwm.h`
+となっていました。この部分はターゲットボードごとに変わると思います。実装ファイルはヘッダと同じディレクトリにある `.../pwm.cpp`です。
 
-実装ファイルは `.../Arduino15/packages/arduino/hardware/renesas_uno/1.4.1/cores/arduino/pwm.cpp`
-です。ヘッダと同じディレクトリにあります。
-
-中身を見ると、はじめの方で早速`Arduino.h` と `FspTimer.h` をインクルードしています。
+ヘッダの中身を見ると、はじめの方で早速`Arduino.h` と `FspTimer.h` をインクルードしています。
 
 [PWM.h (先頭部分抜粋)](arduino-core-renesas/cores/arduino/pwm.h){.cpp .listingtable to=8}
 
@@ -149,7 +146,7 @@ begin関数を呼び出すと、内部で初期設定が行われます。
 
 ## `PwmOut` クラス定義
 
-[**`PwmOut`** クラス定義(ヘッダ)](arduino-core-renesas/cores/arduino/pwm.h){
+[`PwmOut` クラス定義(ヘッダ)](arduino-core-renesas/cores/arduino/pwm.h){
 .cpp .listingtable from=8 to=49 #lst:pwmout-class-definition-header}
 
 privateメンバとして`FspTimer`オブジェクト`timer`が使われています。`timer`へのポインタを渡す`get_timer()`関数を通じてアクセスできます。
@@ -213,6 +210,9 @@ IOとペリフェラルの確保と初期設定を行い、PWM信号の出力を
 .cpp .listingtable from=40 to=59 #lst:pwm_cpp_compatible_mode}
 
 内部で`timer.begin_pwm()`{.cpp}を呼び出しています。
+`begin_pwm`の内部では、まず`timer.begin()`と`timer.add_pwm_extended_cfg()`に
+よってPWMモード用の設定を用意して、`timer.enable_pwm_channel()`でIOピンを出力モードにし、
+最終的に`timer.open()`と`timer.begin()`を呼び出して信号出力が始まります。
 
 ### 周期・パルス幅を設定できるモード
 
@@ -221,7 +221,8 @@ IOとペリフェラルの確保と初期設定を行い、PWM信号の出力を
 `raw`に`false`を与えたときは、`period_width`と`pulse_width`はマイクロ秒単位になります。
 `raw`を`true`にすると、比較レジスタに即値が取り込まれます。このとき`sd`の値によって実時間が変わってしまいます。
 
-`sd`はタイマクロック回路に与える周波数を決めるための分周比を与えます。1/1（直結・48MHz）から1/1024（46.875kHz）までの10段階です。
+`sd`はタイマクロック回路に与える周波数を決めるための分周比を与えます。1/1（直結・48MHz）から1/1024（46.875kHz）までの10段階が
+用意されていますが、実際に受け入れられるのは1/4/16/64/256/1024の６種類です。
 タイマーはこの分周されたクロックのパルスをカウントしてPWMなどの機能を実現します。
 `timer_source_div_t`型は`r_timer_api.h`で定義されていますが、上記の通り一部だけ有効です。
 
@@ -238,10 +239,16 @@ arduino-core-renesas/variants/MINIMA/includes/ra/fsp/inc/api/r_timer_api.h){
 
 [](arduino-core-renesas/cores/arduino/pwm.h){.cpp .listingtable from=25 to=25 nocaption=true}
 
+おそらく最も汎用性がある、スイッチング周波数とデューティー比を指定するモードです。周波数はメインクロックまで指定できると思われますが、
+筆者は実験していません。現実的には500k~1MHzが上限と思われます。
+
 [`PwmOut::begin()`{.cpp} (周波数・デューティー指定モード・`pwm.cpp`抜粋)]( arduino-core-renesas/cores/arduino/pwm.cpp){
 .cpp .listingtable from=93 to=114 #lst:pwm_cpp_set_freq}
 
 ## `PwmOut::cfg_pin()`{.cpp} (プライベート関数)
+
+IOピンがPWMに使えるかを検査し、謎のライブラリ関数`R_IOPORT_PinCfg()`を使って設定を行います。
+PWMライブラリを使わずとも、この関数に適切な引数を渡せばIOピンは設定できそうです。
 
 [`PwmOut::cfg_pin()` (`pwm.cpp`抜粋)](arduino-core-renesas/cores/arduino/pwm.cpp){
 .cpp .listingtable from=15 to=38 #lst:cfg-pin-whole-code}
