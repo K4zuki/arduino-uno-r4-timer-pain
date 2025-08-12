@@ -253,6 +253,43 @@ PWMライブラリを使わずとも、この関数に適切な引数を渡せ�
 [`PwmOut::cfg_pin()` (`pwm.cpp`抜粋)](arduino-core-renesas/cores/arduino/pwm.cpp){
 .cpp .listingtable from=15 to=38 #lst:cfg-pin-whole-code}
 
+### `R_IOPORT_PinCfg()`{.cpp}
+
+ルネサスの"FSPライブラリ"内にある関数です。
+[ヘルプページは存在します](https://renesas.github.io/fsp/group___i_o_p_o_r_t.html#gab518fc544fe2b59722e30bd0a28ef430)
+が、助けにはなりません。
+
+この関数の引数一覧を[@tbl:r-ioport-pincfg-param-list]に示します。
+
+どうやら最初の引数`p_ctrl`は互換性のためにあるらしく、`cfg_pin()`では共用の変数を使用しています。次の`pin`は
+専用の数値型ですが、Arduino形式から変換したものを渡せばOKです。最後の`cfg`は、渡す値がそのままPmnPFSレジスタの構造に当てはまります。
+`cfg_pin()`ではAGT・GPTの切り替え判定をするためややこしく見えますが、`IOPORT_CFG_PERIPHERAL_PIN`{.cpp}と
+`IOPORT_PERIPHERAL_GPT1`{.cpp}の論理和を`uint32_t`{.cpp}にキャストして渡せば大丈夫です。
+
+::: rmnote
+
+この関数の実装がどうなっているかは不明です。静的ライブラリの`libfsp.a`ファイルしか存在せず、`.c`や
+`.cpp`形式のソースコードはありません。
+
+```cpp
+fsp_err_t   R_IOPORT_PinCfg(ioport_ctrl_t * const p_ctrl, bsp_io_port_pin_t pin, uint32_t cfg);
+            R_IOPORT_PinCfg(&g_ioport_ctrl, g_pin_cfg[_pin].pin, (uint32_t) (IOPORT_CFG_PERIPHERAL_PIN | (_is_agt ? IOPORT_PERIPHERAL_AGT : IOPORT_PERIPHERAL_GPT1)));
+```
+
+:::
+
+<div class="table" width="[0.13,0.3,0.2,0.37]">
+
+Table: `R_IOPORT_PinCfg()`{.cpp} 引数一覧 {#tbl:r-ioport-pincfg-param-list}
+
+| Parameter      | Type                          | Purpose                         | note                                                                   |
+|----------------|-------------------------------|---------------------------------|------------------------------------------------------------------------|
+| `p_ctrl`{.cpp} | `ioport_ctrl_t * const`{.cpp} | Unused                          | 共用の固定値を使用                                                              |
+| `pin`{.cpp}    | `bsp_io_port_pin_t`{.cpp}     | Pin identifier                  | `g_pin_cfg[_pin].pin`{.cpp}; `_pin`{.cpp}には`D13`などArduino形式のピン番号を指定できる |
+| `cfg`{.cpp}    | `uint32_t`{.cpp}              | Directly update PmnPFS register | `(uint32_t) (IOPORT_CFG_PERIPHERAL_PIN｜IOPORT_PERIPHERAL_GPT1)`{.cpp}  |
+
+</div>
+
 ::: rmnote
 
 ```{.cpp}
@@ -282,8 +319,6 @@ return true;
 }
 ```
 
-:::
-
 ## `PwmOut::suspend()`{.cpp}
 
 内部で`timer.stop()`{.cpp}を呼んでいます。
@@ -298,9 +333,13 @@ return true;
 
 ## `FspTimer PwmOut::*get_timer()`{.cpp}
 
+:::
+
 # `FspTimer.h`
 
 ## `FspTimer::begin()`{.cpp}
+
+::: rmnote
 
 \newpage
 
@@ -320,8 +359,6 @@ return true;
 
 [](arduino-core-renesas/variants/MINIMA/includes/ra/fsp/inc/api/r_timer_api.h){
 .cpp .listingtable from=165 to=189 nocaption=true}
-
-::: rmnote
 
 ```cpp
 /** User configuration structure, used in open function */
@@ -350,8 +387,6 @@ typedef struct st_timer_cfg
 } timer_cfg_t;
 ```
 
-:::
-
 \newpage
 
 ## `r_gpt.h`
@@ -360,8 +395,6 @@ typedef struct st_timer_cfg
 
 [](arduino-core-renesas/variants/MINIMA/includes/ra/fsp/inc/instances/r_gpt.h){
 .cpp .listingtable from=366 to=398 nocaption=true}
-
-::: rmnote
 
 ```cpp
 /** GPT extension configures the output pins for GPT. */
@@ -398,8 +431,6 @@ typedef struct st_gpt_extended_cfg
 } gpt_extended_cfg_t;
 ```
 
-:::
-
 ### `gpt_gtior_setting_t`
 
 [](arduino-core-renesas/variants/MINIMA/includes/ra/fsp/inc/instances/r_gpt.h){
@@ -410,3 +441,5 @@ typedef struct st_gpt_extended_cfg
 ## `r_ioport_api.h`
 
 ### `ioport_cfg_options_t`
+
+:::
