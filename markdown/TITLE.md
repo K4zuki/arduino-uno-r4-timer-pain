@@ -153,6 +153,8 @@ privateメンバとして`FspTimer`オブジェクト`timer`が使われてい�
 
 [](arduino-core-renesas/cores/arduino/pwm.h){.cpp .listingtable from=37 to=37 nocaption=true}
 
+::: rmnote
+
 \newpage
 
 <div class="table" width="[0.1,0.15,0.25,0.35,0.3]">
@@ -182,6 +184,7 @@ Table: `PwmOut`クラスメンバ一覧 {#tbl:pwmout-class-members}
 |         |          | `FspTimer`{.cpp}          | `timer`{.cpp}                     | FspTimer object                                          |
 
 </div>
+:::
 
 ## `PwmOut::begin()`{.cpp}
 
