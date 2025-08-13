@@ -4,3 +4,6 @@
 [submodule "arduino-core-renesas"]
 	path = arduino-core-renesas
 	url = https://github.com/arduino/ArduinoCore-renesas.git
+[submodule "fsp"]
+	path = fsp
+	url = https://github.com/renesas/fsp
