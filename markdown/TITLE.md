@@ -67,6 +67,9 @@ Arduino R4の右側、D0-D13ピンは全部いずれかのチャンネルにつ�
     - ボードマネージャからArduino UNO R4 Boardsをインストールします。
     - 実装コードの引用はGitHubリポジトリ<https://github.com/arduino/ArduinoCore-renesas>の`1.5.0`タグを
       ダウンロードして直接参照しています。
+- Renesas FSP 6.0
+    - FSPライブラリの実装を確かめるためにGitHubリポジトリ<https://github.com/renesas/fsp>から
+      ソースコード一式をダウンロードしました。上記ボードと同じv4.0.0を参照しています。
 
 RA4M1のデータシート「ハードウェアマニュアル」(たぶん日立語)は **Rev.1.10 Sep 29, 2023**を参照しました。
 
