@@ -8,7 +8,7 @@ jobs:
     name: Compile document
     runs-on: ubuntu-latest
     container:
-      image: k4zuki/pandocker-alpine:3.6-core
+      image: k4zuki/pandocker-alpine:3.5-core
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -56,7 +56,7 @@ jobs:
         with:
           jobs: "Compile document"
       - name: Download all workflow run artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v5
       - name: ls
         run: ls -R
       - name: docx2pdf
