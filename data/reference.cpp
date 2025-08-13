@@ -1,8 +1,11 @@
+/** As-is copy from https://ameblo.jp/ogura-castle/entry-12828565434.html
+*/
+
 #include <FspTimer.h>
 static FspTimer fsp_timer;
 
 void setup() {
-  fsp_timer.begin(TIMER_MODE_PWM,0,4, 1000.0 ,25.0);
+  fsp_timer.begin(TIMER_MODE_PWM, 0, 4, 1000.0, 25.0);
   fsp_timer.open();
 
   R_PFS->PORT[3].PIN[1].PmnPFS_b.PMR = 0;  //D0を汎用入出力に設定
