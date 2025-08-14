@@ -398,7 +398,7 @@ bool FspTimer::begin(timer_mode_t mode, uint8_t tp, uint8_t channel, float freq_
 
 \newpage
 
-[](arduino-r4-fsptimer-test/sketch/fsp_test/fsp_test.ino){.cpp .listingtable from=1 to=21 nocaption=true}
+[](arduino-r4-fsptimer-test/sketch/fsptimer_test/fsptimer_test.ino){.cpp .listingtable from=1 to=21 nocaption=true}
 
 ## PWMモードのおまじない`add_pwm_extended_cfg()`{.cpp}
 
@@ -412,7 +412,7 @@ bool FspTimer::begin(timer_mode_t mode, uint8_t tp, uint8_t channel, float freq_
 スケッチの`setup()`内で以下のように初期化しています。PWMモードの宣言、IOピンをGPTに回す設定、ポインタ類の宣言、
 A/B相の状態変化設定を行っています。冒頭の２行のコメントアウトを入れ替えるとノコギリ波PWMモードになります。
 
-[](arduino-r4-fsptimer-test/sketch/fsp_test/fsp_test.ino){.cpp .listingtable from=16 to=37 nocaption=true}
+[](arduino-r4-fsptimer-test/sketch/fsptimer_test/fsptimer_test.ino){.cpp .listingtable from=16 to=37 nocaption=true}
 
 ### `timer_cfg_t* FspTimer::get_cfg()`{.cpp}
 
@@ -434,7 +434,7 @@ GPTペリフェラルの`GTIOR`レジスタと等価な構造体`gpt_gtior_setti
 
 スケッチでは以下のようになります。三角波PWMにするためにコメントアウトされています。
 
-[](arduino-r4-fsptimer-test/sketch/fsp_test/fsp_test.ino){.cpp .listingtable from=39 to=42 nocaption=true}
+[](arduino-r4-fsptimer-test/sketch/fsptimer_test/fsptimer_test.ino){.cpp .listingtable from=39 to=42 nocaption=true}
 
 ### `gpt_extended_pwm_cfg_t *p_pwm_cfg`{.cpp}
 
@@ -442,7 +442,7 @@ PWMモード用拡張設定リストへのポインタです。三角波PWMモ�
 
 ## `open()`と`start()`：設定値を転送しタイマーのカウントを開始
 
-[](arduino-r4-fsptimer-test/sketch/fsp_test/fsp_test.ino){.cpp .listingtable from=46 to=48 nocaption=true}
+[](arduino-r4-fsptimer-test/sketch/fsptimer_test/fsptimer_test.ino){.cpp .listingtable from=46 to=48 nocaption=true}
 
 `open()`の内部で何が起きているのかをもっと解説したかったのですが、時間切れです。
 
@@ -451,14 +451,14 @@ PWMモード用拡張設定リストへのポインタです。三角波PWMモ�
 頑張ってはみたのですが、ノコギリ波PWMモードの際の`open()`内の挙動がイマイチで、GTIOR構造体を直接操作せざるを得ませんでした。
 当該部分を再掲します。
 
-[](arduino-r4-fsptimer-test/sketch/fsp_test/fsp_test.ino){.cpp .listingtable from=39 to=42 nocaption=true}
+[](arduino-r4-fsptimer-test/sketch/fsptimer_test/fsptimer_test.ino){.cpp .listingtable from=39 to=42 nocaption=true}
 
 ## スケッチ全文掲載
 
 上記の通り、ノコギリ波PWMモードのときは`setup()`冒頭のコメントアウト切り替えと、中段の`GTIOR`構造体操作部の
 コメントを外してください。
 
-[スケッチ全文](arduino-r4-fsptimer-test/sketch/fsp_test/fsp_test.ino){.cpp .listingtable #lst:fsp-test-ino-sketch}
+[スケッチ全文](arduino-r4-fsptimer-test/sketch/fsptimer_test/fsptimer_test.ino){.cpp .listingtable #lst:fsp-test-ino-sketch}
 
 ::: rmnote
 <!--
