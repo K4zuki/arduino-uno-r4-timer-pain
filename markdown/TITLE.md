@@ -73,6 +73,8 @@ Arduino R4の右側、D0-D13ピンは全部いずれかのチャンネルにつ�
       ソースコード一式をダウンロードしました。上記ボードと同じv4.0.0を参照しています。
 - RA4M1のデータシート「ハードウェアマニュアル」
     - **Rev.1.10 Sep 29, 2023**を参照しました。
+- 最終的にできたスケッチはGitHubに上げてあります(<https://github.com/K4zuki/arduino-r4-fsptimer-test>)。
+    - `stable_triangle_pwm`ブランチを参照してください。
 
 \toc
 
@@ -392,28 +394,11 @@ bool FspTimer::begin(timer_mode_t mode, uint8_t tp, uint8_t channel, float freq_
 周波数の設定には少し注意が必要です。三角波PWMのときは設定したい周波数の**2倍**を与える必要があります。
 `PwmOut`のときと同様に周波数の現実的な上限は480kHzです。
 
-以上から、スケッチの冒頭はだいたい以下のような感じになります。
+以上から、スケッチの冒頭は以下のような感じになります。
 
 \newpage
 
-```cpp
-#include "Arduino.h"
-#include "FspTimer.h"
-
-#define _USE_GPT4 (4)
-#define _PWM_FREQ (4.0e3)
-#define _PWM_DUTY (50.0f)
-
-FspTimer gpt4;
-
-void setup() {
-  // Initialise GPT4 timer with saw-tooth PWM
-  gpt4.begin(TIMER_MODE_PWM, GPT_TIMER, _USE_GPT4, _PWM_FREQ, _PWM_DUTY);
-  
-  // Initialise GPT4 timer with triangle PWM mode 1
-  gpt4.begin(TIMER_MODE_TRIANGLE_WAVE_SYMMETRIC_PWM, GPT_TIMER, _USE_GPT4, (2 * _PWM_FREQ), _PWM_DUTY);  
-}
-```
+[](arduino-r4-fsptimer-test/sketch/fsp_test/fsp_test.ino){.cpp .listingtable from=1 to=21 nocaption=true}
 
 ## PWMモードのおまじない`add_pwm_extended_cfg()`{.cpp}
 
@@ -424,32 +409,59 @@ void setup() {
 
 ## 各種コンフィグを操作して準備
 
+スケッチの`setup()`内で以下のように初期化しています。PWMモードの宣言、IOピンをGPTに回す設定、ポインタ類の宣言、
+A/B相の状態変化設定を行っています。冒頭の２行のコメントアウトを入れ替えるとノコギリ波PWMモードになります。
+
+[](arduino-r4-fsptimer-test/sketch/fsp_test/fsp_test.ino){.cpp .listingtable from=16 to=37 nocaption=true}
+
 ### `timer_cfg_t* FspTimer::get_cfg()`{.cpp}
 
 設定リスト`timer_cfg`へのポインタを返すヘルパー関数です。とくに`p_extend`と、その中のPWMモード固有設定リスト`p_pwm_cfg`
 にアクセスするときに使います。
 
-```cpp
-  /** prepare variables to update config */
-  timer_cfg_t* gpt4_cfg = gpt4.get_cfg();
-  gpt4_ext_cfg = (gpt_extended_cfg_t*)gpt4_cfg->p_extend;
-  gpt4_ext_pwm_cfg = (gpt_extended_pwm_cfg_t*)gpt4_ext_cfg->p_pwm_cfg;
-```
-
 ### `gpt_extended_cfg_t *p_extend`{.cpp}
 
-## `open()`：設定情報がペリフェラルに渡る
-
-## `start()`：タイマーのカウントを開始
-
-## 結局FSPライブラリのみを用いてお手本コードを再現するのは無理だった
-
-### `gpt_extended_pwm_cfg_t *p_pwm_cfg`{.cpp}
+`gpt_extended_cfg_t`型構造体へのポインタです。
+GPTペリフェラルの`GTIOR`レジスタと等価な構造体`gpt_gtior_setting_t gtior_setting`{.cpp}と、拡張設定リスト
+`p_pwm_cfg`にアクセスするために必要です。
 
 ### `gpt_gtior_setting_t gtior_setting`{.cpp}
 
-::: rmnote
+`gtior_setting.gtior`または`gtior_setting.gtior_b.XXX`の書式で構造体に設定値を書き込みます。
+お手本コードの以下の部分を再現します。この構造体は`open()`の中で実レジスタに転送されます。
 
+[](data/reference.cpp){.cpp .listingtable from=18 to=21 nocaption=true}
+
+スケッチでは以下のようになります。三角波PWMにするためにコメントアウトされています。
+
+[](arduino-r4-fsptimer-test/sketch/fsp_test/fsp_test.ino){.cpp .listingtable from=39 to=42 nocaption=true}
+
+### `gpt_extended_pwm_cfg_t *p_pwm_cfg`{.cpp}
+
+PWMモード用拡張設定リストへのポインタです。三角波PWMモードでデッドタイムを設定する変数へのアクセスに使います。
+
+## `open()`と`start()`：設定値を転送しタイマーのカウントを開始
+
+[](arduino-r4-fsptimer-test/sketch/fsp_test/fsp_test.ino){.cpp .listingtable from=46 to=48 nocaption=true}
+
+`open()`の内部で何が起きているのかをもっと解説したかったのですが、時間切れです。
+
+## 結局FSPライブラリのみを用いてお手本コードを再現するのは無理だった
+
+頑張ってはみたのですが、ノコギリ波PWMモードの際の`open()`内の挙動がイマイチで、GTIOR構造体を直接操作せざるを得ませんでした。
+当該部分を再掲します。
+
+[](arduino-r4-fsptimer-test/sketch/fsp_test/fsp_test.ino){.cpp .listingtable from=39 to=42 nocaption=true}
+
+## スケッチ全文掲載
+
+上記の通り、ノコギリ波PWMモードのときは`setup()`冒頭のコメントアウト切り替えと、中段の`GTIOR`構造体操作部の
+コメントを外してください。
+
+[スケッチ全文](arduino-r4-fsptimer-test/sketch/fsp_test/fsp_test.ino){.cpp .listingtable #lst:fsp-test-ino-sketch}
+
+::: rmnote
+<!--
 \newpage
 
 ## `GPTimer *gpt_timer;`{.cpp}
@@ -545,6 +557,7 @@ typedef struct st_gpt_extended_cfg
 
 ### `ioport_cfg_options_t`
 
+-->
 :::
 
 # あとがき {-}
