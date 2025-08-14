@@ -6,7 +6,7 @@
 PWMをいじろうとして色々うんざりした経緯を語るドキュメントです。R4 Wifiは実験していません。
 
 ::: rmnote
-
+<!--
 ## 愚痴またはポエム {-}
 
 ていうかそもそも、HITACHIマイコンってハードル高くないですか？筆者自身はPIC・AVRを触ったことがあるけどH8・SHなどのHITACHI系には
@@ -27,6 +27,7 @@ PICは今で言うインフルエンサー的な方[^gokan]がいて、ライン
 [^hew-bad-name]: 某月でバイトをしていたのでH8が毎週売れていくのを目にしていましたが、一方でネット上ではあまりいい話を聞きませんでした。
 **HEWにうんざりしている**ツーイートばかりが目に入ってました。何がどううんざりさせるのかは不明です。
 
+-->
 :::
 
 ## この本で解説する範囲 {-}
@@ -70,8 +71,8 @@ Arduino R4の右側、D0-D13ピンは全部いずれかのチャンネルにつ�
 - Renesas FSP 4.0.0
     - FSPライブラリの実装を確かめるためにGitHubリポジトリ<https://github.com/renesas/fsp>から
       ソースコード一式をダウンロードしました。上記ボードと同じv4.0.0を参照しています。
-
-RA4M1のデータシート「ハードウェアマニュアル」(たぶん日立語)は **Rev.1.10 Sep 29, 2023**を参照しました。
+- RA4M1のデータシート「ハードウェアマニュアル」
+    - **Rev.1.10 Sep 29, 2023**を参照しました。
 
 \toc
 
@@ -265,13 +266,16 @@ arduino-core-renesas/variants/MINIMA/includes/ra/fsp/inc/api/r_timer_api.h){
 [`PwmOut::begin()`{.cpp} (周波数・デューティー指定モード・`pwm.cpp`抜粋)]( arduino-core-renesas/cores/arduino/pwm.cpp){
 .cpp .listingtable from=93 to=114 #lst:pwm_cpp_set_freq}
 
-## `PwmOut::cfg_pin()`{.cpp} (プライベート関数)
+## `PwmOut::cfg_pin()`{.cpp}
 
 IOピンがPWMに使えるかを検査し、~~謎の~~FSPライブラリ関数`R_IOPORT_PinCfg()`を使って設定を行います。
-PWMライブラリを使わずとも、この関数に適切な引数を渡せばIOピンは設定できそうです。
+PWMライブラリを使わずとも、この関数に適切な引数を渡せばIOピンは設定できそうです[^pwm-lib-caused-more-trouble]。
 
 [`PwmOut::cfg_pin()` (`pwm.cpp`抜粋)](arduino-core-renesas/cores/arduino/pwm.cpp){
 .cpp .listingtable from=15 to=38 #lst:cfg-pin-whole-code}
+
+[^pwm-lib-caused-more-trouble]: PWMライブラリに極小デューティーを設定してから停止させて諸設定を乗っ取る方法も試しましたが、
+よくわからないバグが増えただけでした。素直にFspTimerライブラリを使ったほうがいいです。
 
 ### `R_IOPORT_PinCfg()`{.cpp}
 
@@ -363,21 +367,92 @@ return true;
 -->
 :::
 
-# `FspTimer.h`
+# `FspTimer.h`（PWMモード関連部分）を使った最終的な実装（例）
 
-## `FspTimer::begin()`{.cpp}
+お手本コードに使われていることから薄々わかっていたことですが、結局`FspTimer`が相補PWMのゴールには最短のようです。
+
+`PwmOut`と同様に、コンストラクタ呼び出し時点では大したことはしません。`begin()`で
+各種オブジェクトが準備されます(信号はまだ出ません)。
+こちらの実装も互換モード用の`begin_pwm()`を含め3つあります。ここでは適度に簡単な実装（@lst:fsptimer-pwm-begin）を
+採用します。
+
+[`FspTimer::begin()`{.cpp} (`FspTimer.cpp`抜粋)](arduino-core-renesas/cores/arduino/FspTimer.cpp){
+.cpp .listingtable from=182 to=208 #lst:fsptimer-pwm-begin}
+
+<!--
+```{.cpp}
+bool FspTimer::begin(timer_mode_t mode, uint8_t tp, uint8_t channel, float freq_hz, float duty_perc, GPTimerCbk_f cbk /*= nullptr*/ , void *ctx /*= nullptr*/  ) {
+```
+-->
+
+ここで`mode`には`TIMER_MODE_PWM`（ノコギリ波PWM）または`TIMER_MODE_TRIANGLE_WAVE_SYMMETRIC_PWM`（三角波PWM・モード1）
+を渡します。`tp`はタイマーの種類（GPTまたはAGT）、`channel`はGPTのチャネル（今回は`4`）、残りはスイッチング周波数とデューティー比です。
+最後のパラメータ2つは省略できます。
+
+周波数の設定には少し注意が必要です。三角波PWMのときは設定したい周波数の**2倍**を与える必要があります。
+`PwmOut`のときと同様に周波数の現実的な上限は480kHzです。
+
+以上から、スケッチの冒頭はだいたい以下のような感じになります。
+
+\newpage
+
+```cpp
+#include "Arduino.h"
+#include "FspTimer.h"
+
+#define _USE_GPT4 (4)
+#define _PWM_FREQ (4.0e3)
+#define _PWM_DUTY (50.0f)
+
+FspTimer gpt4;
+
+void setup() {
+  // Initialise GPT4 timer with saw-tooth PWM
+  gpt4.begin(TIMER_MODE_PWM, GPT_TIMER, _USE_GPT4, _PWM_FREQ, _PWM_DUTY);
+  
+  // Initialise GPT4 timer with triangle PWM mode 1
+  gpt4.begin(TIMER_MODE_TRIANGLE_WAVE_SYMMETRIC_PWM, GPT_TIMER, _USE_GPT4, (2 * _PWM_FREQ), _PWM_DUTY);  
+}
+```
+
+## PWMモードのおまじない`add_pwm_extended_cfg()`{.cpp}
+
+より詳細に初期化する方の`begin()`の中で`timer_cfg`という設定リストが初期化されます。`FspTimer`をPWMモードで使うときは、
+このリストを更に拡張する`add_pwm_extended_cfg()`を実行する必要があります。`timer_cfg`の拡張部分がポインタ渡しなので、
+これを忘れるとわかりにくいバグり方をします（何回かブートローダを入れ直しました）。
+ヘルパー関数`get_cfg()`が`timer_cfg`へのポインタを返します。
+
+## 各種コンフィグを操作して準備
+
+### `timer_cfg_t* FspTimer::get_cfg()`{.cpp}
+
+設定リスト`timer_cfg`へのポインタを返すヘルパー関数です。とくに`p_extend`と、その中のPWMモード固有設定リスト`p_pwm_cfg`
+にアクセスするときに使います。
+
+```cpp
+  /** prepare variables to update config */
+  timer_cfg_t* gpt4_cfg = gpt4.get_cfg();
+  gpt4_ext_cfg = (gpt_extended_cfg_t*)gpt4_cfg->p_extend;
+  gpt4_ext_pwm_cfg = (gpt_extended_pwm_cfg_t*)gpt4_ext_cfg->p_pwm_cfg;
+```
+
+### `gpt_extended_cfg_t *p_extend`{.cpp}
+
+## `open()`：設定情報がペリフェラルに渡る
+
+## `start()`：タイマーのカウントを開始
+
+## 結局FSPライブラリのみを用いてお手本コードを再現するのは無理だった
+
+### `gpt_extended_pwm_cfg_t *p_pwm_cfg`{.cpp}
+
+### `gpt_gtior_setting_t gtior_setting`{.cpp}
 
 ::: rmnote
 
 \newpage
 
-## `timer_cfg_t* FspTimer::get_cfg()`{.cpp}
-
 ## `GPTimer *gpt_timer;`{.cpp}
-
-### `gpt_extended_cfg_t ext_cfg`{.cpp}
-
-### `gpt_gtior_setting_t`
 
 \newpage
 
@@ -475,18 +550,19 @@ typedef struct st_gpt_extended_cfg
 # あとがき {-}
 
 今回も前日印刷^TM^です[^genko]。主な遅延要因はバトルフィールド６のオープンベータとタルコフのワイプです。
-BF3リメイクと言った感じでとても良かった。2週連続でベータ期間で、2回目はコミケと重なってしまうのであまりできないかも
-しれないですが、タイムゾーンの差を活かして月曜日まで楽しもうと思います。
+BF3リメイクと言った感じでとても楽しいです。2週連続でベータ期間で、2回目はコミケと重なってしまうのであまりできないかも
+しれないですが、日本時間の木曜日夕方開始だし、タイムゾーンの差を活かして月曜日まで楽しもうと思います。
 
 タルコフの進捗は、グランドゼロマップが嫌すぎて、プラパーの最初のタスクで詰まってます。メカニックとスキヤーも詰まってます。
 かろうじてセラピは進んだけど、イエガー未開放奴です。
-本編がつらいからってアリーナでしばらく遊んでたら勝手にレベル14まで進んでしまった。タスクは進んでないけど取引額
-の条件は満たしているのでセラピッピとピスキはLL2になっているでしょう。
+本編がつらいからってアリーナでしばらく遊んでたら勝手にレベル14まで進んでしまった（アリーナはまあまあ面白いって感じです）。
+タスクは進んでないけど取引額の条件は満たしているのでセラピッピとピスキはLL2になっているでしょう。
+
 ハードコアワイプ初日のタスクなしモード、悪くないと思ったんですが、コミュニティは好きじゃないみたいですね。
 
-Arduino R4のデバッガにtuboLinkII（現在は入手不可）を使おうとして一時沼りましたが、過去の自分がDropboxに残していた
+Arduino R4のデバッガにTsuboLinkII（現在は入手不可）を使おうとして一時沼りましたが、過去の自分がDropboxに残していた
 ファームウェアのバックアップを書き込んで事なきを得ました。やっててよかったｴｪｪｪｪﾝﾍﾞｯﾄﾞ! まあMacとの相性が悪かったのかなー
 
 [^genko]: このあとがきは木曜日朝7時頃に書かれました。本編はまだ書き終わっていません。
 
-- ![](images/QRcode.png){width=80mm} &larr;原稿はこちらから
+- ![](images/QRcode.png){width=80mm} &larr; 原稿はこちらから
