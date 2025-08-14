@@ -57,6 +57,8 @@ jobs:
           jobs: "Compile document"
       - name: Download all workflow run artifacts
         uses: actions/download-artifact@v5
+        with:
+          path: artifact
       - name: ls
         run: ls -R
       - name: docx2pdf
