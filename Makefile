@@ -19,6 +19,6 @@ PROJECT= `pwd`
 #DOCXFRONTPAGE := frontpage.md
 TARGET := ArduinoR4-timer-pain-$(DATE)-$(HASH)
 #REVERSE_INPUT := reverse-input.docx
-#REFERENCE := $(MISC)/ref.docx
+REFERENCE := ./local_reference.docx
 ##
 include $(MISC_SYS)/Makefile
