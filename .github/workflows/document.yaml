@@ -13,7 +13,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 5
+          fetch-depth: 0
           submodules: recursive
       - name: Setup safe directory for git
         run: |
@@ -48,7 +48,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 5
+          fetch-depth: 0
           submodules: recursive
       - name: Install Office
         run: choco install office365business # This takes about 5min
