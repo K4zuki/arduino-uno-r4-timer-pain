@@ -1,6 +1,6 @@
 ---
-title: そういうとこやぞ® シリーズ
-subtitle: Arduino R4のタイマーで苦労した話
+title: そういうとこやぞ&#x24C7; シリーズ
+subtitle: Arduino R4のFspTimerライブラリをちょっと深堀りした話
 circle: KY技研
 author: K4ZUKI
 comiket: C106
@@ -79,7 +79,7 @@ docx_coreprop:
   read-only-recommended: true # Better set true but this messes with GitHubActions to convert to PDF using Word
   disable-table-autofit: true # setting 'true' requires explicit column widths setting
   table:
-  #    "Normal Table": "Centered"
+    "Normal Table": "Centered"
   paragraph:
     "Image Caption": "Figure Caption"
     "Normal": "Body Text"
@@ -90,11 +90,11 @@ docx_coreprop:
     table-style: "Centered"
     para-style: "Table Body Center"
     rows:
-      - "そういうとこやぞ® シリーズ"
-      - "KY技研"
-      - "K4ZUKI"
+      - "そういうとこやぞ® シリーズ / Arduino R4のPWMライブラリ実装を解析した話"
+      - "K4ZUKI / KY技研"
+      - "Comiket 106 東 Ｓ-44b (東７ホール) / 2025"
       - |
-        Markdown x Pandoc (DOCX writer)
+        Markdown x Pandoc Version 3.5 (DOCX writer)
         with docx-coreprop-writer program
-      - "Revision 1.0 / Comiket 106 / 2025"
+      - "キンコーズオンラインで印刷製本"
 ...
