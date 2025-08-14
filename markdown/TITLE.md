@@ -67,7 +67,7 @@ Arduino R4の右側、D0-D13ピンは全部いずれかのチャンネルにつ�
     - ボードマネージャからArduino UNO R4 Boardsをインストールします。
     - 実装コードの引用はGitHubリポジトリ<https://github.com/arduino/ArduinoCore-renesas>の`1.5.0`タグを
       ダウンロードして直接参照しています。
-- Renesas FSP 6.0
+- Renesas FSP 4.0.0
     - FSPライブラリの実装を確かめるためにGitHubリポジトリ<https://github.com/renesas/fsp>から
       ソースコード一式をダウンロードしました。上記ボードと同じv4.0.0を参照しています。
 
@@ -76,6 +76,8 @@ RA4M1のデータシート「ハードウェアマニュアル」(たぶん日�
 \toc
 
 # 先人の成果を調べてみる
+
+## お手本実装
 
 *小倉 キャッスル 一馬* 氏のブログに筆者がやろうとしていることがほぼ全部書かれています。以下の記事と続編をたどると、
 ArduinoのAPIや関数をほぼ使わず、レジスタの直接操作をして相補PWMにしています。
@@ -201,15 +203,16 @@ Table: `PwmOut`クラスメンバ一覧 {#tbl:pwmout-class-members}
 ## `PwmOut::begin()`{.cpp}
 
 IOとペリフェラルの確保と初期設定を行い、PWM信号の出力を[即時開始する]{.underline}関数です。
-3種類の実装が用意されています（次節で詳しく見ます）。使用するピンによってAGTかGPTのタイマブロックを割り当て[^seems-no-agt]、
-他のオブジェクトと衝突しないように予約します。
-タイマブロックの種類はICレベルでピンごとに固有の割り当てが定義されています。アナログ用のピン(A0~A3)には割り当てがありません。
+3種類の実装が用意されています。どの実装でも、ピンの制御をGPTのタイマブロックに割り当て[^seems-no-agt]、
+対応するタイマーをノコギリ波PWMモードに初期化します。
+
+タイマーブロックの種類はICレベルでピンごとに固有の割り当てが定義されています。アナログ用のピン(A0~A3)には割り当てがありません。
 デジタルピン(D0~D13)とI2C兼用ピン(A4,A5)だけが対象です。
 
-信号出力を開始するタイミングが制御を制御したいので、クラスを使わない別解を探したところ、
-この関数内で使われているプライベート関数`cfg_pin()`と等価な操作をすればIOの設定をGPTに割り当てることができそうだとわかりました。
+[^seems-no-agt]: ソースを見るとAGTとの切り分けが各所に入っていますが、少なくともUNO R4では、AGTが割り当てられる可能性はなさそうです。
 
-[^seems-no-agt]: ピンの機能割り当てを調べた限り、少なくともUNO R4では、AGTが割り当てられる可能性はなさそうです。
+::: rmnote
+<!--
 
 ### 互換モード：490Hz、50％
 
@@ -246,19 +249,25 @@ arduino-core-renesas/variants/MINIMA/includes/ra/fsp/inc/api/r_timer_api.h){
 
 デフォルトでは`raw = false`、`sd = TIMER_SOURCE_DIV_1` です。
 
+-->
+:::
+
 ### 周波数とデューティー比を設定するモード
 
 [](arduino-core-renesas/cores/arduino/pwm.h){.cpp .listingtable from=25 to=25 nocaption=true}
 
-おそらく最も汎用性がある、スイッチング周波数とデューティー比を指定するモードです。周波数はメインクロックまで指定できると思われますが、
-筆者は実験していません。現実的には500k~1MHzが上限と思われます。
+スイッチング周波数とデューティー比を指定するモードです。周波数はメインクロックまで指定できると思われますが、
+筆者は実験していません。現実的には480kHzが上限と思われます[^duty-vs-clock]。
+
+[^duty-vs-clock]: メインが48MHzなので、スイッチングが480kHzのときデューティー1％が1クロックになります。
+スイッチングを1MHzにすると1周期が48クロック（デューティー1％あたり0.5クロックくらい）しかありません。
 
 [`PwmOut::begin()`{.cpp} (周波数・デューティー指定モード・`pwm.cpp`抜粋)]( arduino-core-renesas/cores/arduino/pwm.cpp){
 .cpp .listingtable from=93 to=114 #lst:pwm_cpp_set_freq}
 
 ## `PwmOut::cfg_pin()`{.cpp} (プライベート関数)
 
-IOピンがPWMに使えるかを検査し、謎のライブラリ関数`R_IOPORT_PinCfg()`を使って設定を行います。
+IOピンがPWMに使えるかを検査し、~~謎の~~FSPライブラリ関数`R_IOPORT_PinCfg()`を使って設定を行います。
 PWMライブラリを使わずとも、この関数に適切な引数を渡せばIOピンは設定できそうです。
 
 [`PwmOut::cfg_pin()` (`pwm.cpp`抜粋)](arduino-core-renesas/cores/arduino/pwm.cpp){
@@ -266,9 +275,15 @@ PWMライブラリを使わずとも、この関数に適切な引数を渡せ�
 
 ### `R_IOPORT_PinCfg()`{.cpp}
 
-ルネサスの"FSPライブラリ"内にある関数です。
-[ヘルプページは存在します](https://renesas.github.io/fsp/group___i_o_p_o_r_t.html#gab518fc544fe2b59722e30bd0a28ef430)
-が、助けにはなりません。
+ルネサスの"FSPライブラリ"内にある関数です。お手本コードで直接レジスタ操作していた部分の置き換えに使えます。
+[ヘルプページも存在します](https://renesas.github.io/fsp/group___i_o_p_o_r_t.html#gab518fc544fe2b59722e30bd0a28ef430)
+が、Arduinoが使っているものとはバージョンが異なっている[^v4-0-0]ので、残念ながら助けにはなりません。
+FSPのソースコードをリポジトリから入手して内容を見るのがベストです。
+
+[^v4-0-0]: ヘッダ情報によると、FSPバージョン`v4.0.0`を使っています。
+
+[FSPバージョン情報](arduino-core-renesas/variants/MINIMA/includes/ra/fsp/inc/fsp_version.h){
+.listingtable .cpp from=56 to=57}
 
 この関数の引数一覧を[@tbl:r-ioport-pincfg-param-list]に示します。
 
@@ -277,23 +292,11 @@ PWMライブラリを使わずとも、この関数に適切な引数を渡せ�
 `cfg_pin()`ではAGT・GPTの切り替え判定をするためややこしく見えますが、`IOPORT_CFG_PERIPHERAL_PIN`{.cpp}と
 `IOPORT_PERIPHERAL_GPT1`{.cpp}の論理和を`uint32_t`{.cpp}にキャストして渡せば大丈夫です。
 
-::: rmnote
-
-この関数の実装がどうなっているかは不明です。静的ライブラリの`libfsp.a`ファイルしか存在せず、`.c`や
-`.cpp`形式のソースコードはありません。
-
-```cpp
-fsp_err_t   R_IOPORT_PinCfg(ioport_ctrl_t * const p_ctrl, bsp_io_port_pin_t pin, uint32_t cfg);
-            R_IOPORT_PinCfg(&g_ioport_ctrl, g_pin_cfg[_pin].pin, (uint32_t) (IOPORT_CFG_PERIPHERAL_PIN | (_is_agt ? IOPORT_PERIPHERAL_AGT : IOPORT_PERIPHERAL_GPT1)));
-```
-
-:::
-
 <div class="table" width="[0.13,0.3,0.2,0.37]">
 
 Table: `R_IOPORT_PinCfg()`{.cpp} 引数一覧 {#tbl:r-ioport-pincfg-param-list}
 
-| Parameter      | Type                          | Purpose                         | note                                                                   |
+| Parameter      | Type                          | Purpose                         | Note                                                                   |
 |----------------|-------------------------------|---------------------------------|------------------------------------------------------------------------|
 | `p_ctrl`{.cpp} | `ioport_ctrl_t * const`{.cpp} | Unused                          | 共用の固定値を使用                                                              |
 | `pin`{.cpp}    | `bsp_io_port_pin_t`{.cpp}     | Pin identifier                  | `g_pin_cfg[_pin].pin`{.cpp}; `_pin`{.cpp}には`D13`などArduino形式のピン番号を指定できる |
@@ -302,6 +305,19 @@ Table: `R_IOPORT_PinCfg()`{.cpp} 引数一覧 {#tbl:r-ioport-pincfg-param-list}
 </div>
 
 ::: rmnote
+<!--
+
+```cpp
+IOPORT_CFG_PERIPHERAL_PIN        = 0x00010000  ///< Enables pin to operate as a peripheral pin
+
+#define IOPORT_PRV_PFS_PSEL_OFFSET    (24)
+
+/** Pin will function as an AGT peripheral pin */
+IOPORT_PERIPHERAL_AGT = (0x01UL << IOPORT_PRV_PFS_PSEL_OFFSET),
+
+/** Pin will function as a GPT peripheral pin */
+IOPORT_PERIPHERAL_GPT1 = (0x03UL << IOPORT_PRV_PFS_PSEL_OFFSET),
+```
 
 ```{.cpp}
 bool PwmOut::cfg_pin(int max_index) {
@@ -344,6 +360,7 @@ return true;
 
 ## `FspTimer PwmOut::*get_timer()`{.cpp}
 
+-->
 :::
 
 # `FspTimer.h`
