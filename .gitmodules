@@ -7,3 +7,6 @@
 [submodule "fsp"]
 	path = fsp
 	url = https://github.com/renesas/fsp
+[submodule "arduino-r4-fsptimer-test"]
+	path = arduino-r4-fsptimer-test
+	url = git@github.com:K4zuki/arduino-r4-fsptimer-test.git
