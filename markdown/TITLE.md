@@ -578,4 +578,6 @@ Arduino R4のデバッガにTsuboLinkII（現在は入手不可）を使おう�
 
 [^genko]: このあとがきは木曜日朝7時頃に書かれました。本編はまだ書き終わっていません。
 
+<!--
 - ![](images/QRcode.png){width=80mm} &larr; 原稿はこちらから
+-->
