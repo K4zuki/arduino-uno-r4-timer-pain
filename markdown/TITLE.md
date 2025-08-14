@@ -442,11 +442,11 @@ PWMモード用拡張設定リストへのポインタです。三角波PWMモ�
 
 ## `open()`と`start()`：設定値を転送しタイマーのカウントを開始
 
-[](arduino-r4-fsptimer-test/sketch/fsptimer_test/fsptimer_test.ino){.cpp .listingtable from=46 to=48 nocaption=true}
+[](arduino-r4-fsptimer-test/sketch/fsptimer_test/fsptimer_test.ino){.cpp .listingtable from=46 to=47 nocaption=true}
 
 `open()`の内部で何が起きているのかをもっと解説したかったのですが、時間切れです。
 
-## 結局FSPライブラリのみを用いてお手本コードを再現するのは無理だった
+## 結局FSPライブラリだけでお手本コードを再現するのは無理だった
 
 頑張ってはみたのですが、ノコギリ波PWMモードの際の`open()`内の挙動がイマイチで、GTIOR構造体を直接操作せざるを得ませんでした。
 当該部分を再掲します。
