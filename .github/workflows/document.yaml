@@ -61,10 +61,11 @@ jobs:
         run: ls -R
       - name: docx2pdf
         run: |
-          ./docx2pdf/docx2pdf.ps1
+          cd artifact
+          ../docx2pdf/docx2pdf.ps1
       - name: Make a release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            ./*.html
-            ./*.pdf
+            ./artifact/*.html
+            ./artifact/*.pdf
